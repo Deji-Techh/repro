@@ -343,3 +343,10 @@ Real runs, real chrome, kane-cli **0.10.4**, ~220 credits of the 10,000 burned o
 | `--analyzer-only` | Not spiked in depth yet. Still the highest-ceiling primitive if it can attach to a long-lived Chrome via `--cdp-endpoint`; verify before choosing the Truth Server idea. |
 
 **Net:** the loop from §6 is not a plan any more — it runs. What's left is packaging: PR comment, fixture-based demo mode, and the video.
+
+### Spike log addendum (same day, later)
+
+- **`--analyzer-only` works against a live browser.** Launched Chrome with `--remote-debugging-port=9222`, pointed `run --analyzer-only --cdp-endpoint http://localhost:9222` at it, and got `condition_results` for the page that was already open: `[true, null, true]`. No objective, no saved test, no upload. This is the live-oracle primitive, and it means the **Truth Server** idea is technically viable. Note: a condition the judge cannot decide comes back missing (exit `1`), not `false` — so consumers must distinguish *false* from *unknown*.
+- **Codex CLI install is fragile.** `npm i -g @openai/codex` reported success but skipped the `@openai/codex-darwin-arm64` optional package (twice), because the platform builds are published as *versions* of the same package (`0.169.0-darwin-arm64`), not as separate names. Fix: fetch that tarball and drop it at `@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/<triple>/bin/codex`.
+- **Kane's bug verdict is not stable run to run.** Identical failing flow → `automation_bug` once, `confirmed product bug` (740) the next time. Use `result_code` as the primary router; use the bug verdict only as a veto.
+- **Tracked replay output dirties the tree on every run.** `output-<stem>/Result.md` and `.internal/*` are rewritten by each replay, which blocks `git checkout` and `bisect`. Either commit them after runs or untrack them (the demo repo now does the latter).

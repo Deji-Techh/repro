@@ -12,6 +12,7 @@ import { setTimeout as sleep } from "node:timers/promises";
 import { analyze, findEvidencePack, runKane, runObjective, runTest, routeResultCode } from "./kane.mjs";
 import { objectiveFromTicket, testMdFromObjective } from "./objective.mjs";
 import { bisect, withServer } from "./bisect.mjs";
+import { loadTranscript, renderTranscript } from "./demo.mjs";
 import { findChrome } from "./chrome.mjs";
 import { writeReport } from "./report.mjs";
 
@@ -36,6 +37,7 @@ ${C.bold("Commands")}
   fix --test <file>               feed the verdict to an agent, re-verify
   report                          print repro-report.md
   pr --comment                    post the report to the current PR (gh)
+  demo --fixtures                 watch the recorded loop, zero credits
 
 ${C.bold("Common flags")}
   --url <url>          start URL                 --timeout <s>   hard cap (default 240)
@@ -401,6 +403,32 @@ function splitCmd(s) {
   return s.match(/(?:[^\s"']+|"[^"]*"|'[^']*')+/g)?.map((p) => p.replace(/^["']|["']$/g, "")) ?? [];
 }
 
+async function cmdDemo(flags) {
+  if (flags.fixtures || flags.recorded) {
+    const t = loadTranscript();
+    if (!t) {
+      line(C.yellow("no fixtures/transcript.json in this checkout"));
+      return 1;
+    }
+    line(renderTranscript(t));
+    return 0;
+  }
+  line("");
+  line(C.bold("  Live demo") + C.dim("  (spends credits)"));
+  line("");
+  line("  1. node scripts/make-demo-repo.mjs     # 20 commits, one real regression");
+  line(C.dim("     (or, after npm link: repro …)"));
+  line("  2. (cd .repro-demo && PORT=4173 node apps/demo-shop/server.mjs)");
+  line('  3. repro verify --url http://localhost:4173/checkout --objective "…"');
+  line(`  4. repro bisect --objective "…" --good <first> --bad <culprit> --precheck \
+       --serve "PORT=4173 node apps/demo-shop/server.mjs" --ready-url http://localhost:4173/api/health`);
+  line('  5. repro fix --objective "…" --culprit <sha> --serve "…" --ready-url …');
+  line("");
+  line(C.dim("  No credits? repro demo --fixtures"));
+  line("");
+  return 0;
+}
+
 async function cmdPr(flags) {
   const file = resolve("repro-report.md");
   if (!existsSync(file)) {
@@ -502,6 +530,8 @@ async function main() {
         return await cmdReport(flags);
       case "pr":
         return await cmdPr(flags);
+      case "demo":
+        return await cmdDemo(flags);
       default:
         line(C.red(`unknown command: ${cmd}`));
         line(HELP);

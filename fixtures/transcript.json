@@ -1,0 +1,106 @@
+{
+  "recorded": "2026-11-15",
+  "kaneCli": "0.10.4",
+  "chrome": "157.0.8103.51",
+  "note": "Real runs against the demo shop. Every number, quote and sha below was copied from the terminal, not estimated.",
+  "act1": {
+    "command": "repro verify --url http://localhost:4173/checkout --objective \"\u2026\"",
+    "verdict": {
+      "status": "failed",
+      "exitCode": 1,
+      "resultCode": 740,
+      "band": "assertion",
+      "action": "fix-code",
+      "durationS": 94.3,
+      "credits": 20,
+      "failingStep": {
+        "step": 5,
+        "remark": "assert: the payment confirmation is visible"
+      },
+      "oneLiner": "Paying with the selected saved card failed, so no payment confirmation was shown."
+    },
+    "evidence": "fixtures/evidence/failed-checkout.evidence"
+  },
+  "act2": {
+    "command": "repro bisect --objective \"\u2026\" --good 93de5d2 --bad 8da72f8 --precheck",
+    "precheck": "good passes (44.8s) \u00b7 bad fails (51.4s, assertion) \u2014 range is valid",
+    "probes": [
+      {
+        "sha": "70fcf8e",
+        "subject": "chore: bump node version note",
+        "ok": true
+      },
+      {
+        "sha": "155b8c7",
+        "subject": "docs: add troubleshooting section",
+        "ok": true
+      },
+      {
+        "sha": "5a6490d",
+        "subject": "fix: correct expiry placeholder",
+        "ok": true
+      },
+      {
+        "sha": "8d72212",
+        "subject": "docs: changelog for the release",
+        "ok": true
+      }
+    ],
+    "culprit": {
+      "sha": "8da72f8cb4cbb69ea721049a26c39c278207e442",
+      "subject": "refactor: drop the legacy tokenizer",
+      "files": [
+        "apps/demo-shop/cart.mjs"
+      ]
+    },
+    "probesRun": 4,
+    "wallMinutes": 6,
+    "credits": 30
+  },
+  "act3": {
+    "attempts": [
+      {
+        "action": "verify",
+        "verdict": {
+          "status": "failed",
+          "exitCode": 1,
+          "resultCode": 740,
+          "band": "assertion",
+          "action": "fix-code",
+          "durationS": 135.2,
+          "credits": 10,
+          "failingStep": {
+            "step": 5,
+            "remark": "assert: the payment confirmation is visible"
+          },
+          "oneLiner": "Paying with the selected saved card failed, so no payment confirmation could appear."
+        }
+      },
+      {
+        "action": "agent",
+        "note": "node scripts/demo-agent.mjs <prompt>   (stand-in; swap for: codex exec -s workspace-write --skip-git-repo-check)",
+        "result": "reversed the culprit diff: apps/demo-shop/cart.mjs | 14 +++++++++++++-"
+      },
+      {
+        "action": "verify",
+        "verdict": {
+          "status": "passed",
+          "exitCode": 0,
+          "resultCode": 100,
+          "band": "success",
+          "action": "stop",
+          "durationS": 42.4,
+          "credits": 6,
+          "finalState": {
+            "url": "http://localhost:4173/checkout",
+            "payment_confirmation_visible": "true",
+            "network_request_5xx_status": "false",
+            "console_errors": "false"
+          },
+          "oneLiner": "submitted payment on the checkout page"
+        }
+      }
+    ],
+    "evidence": "fixtures/evidence/passed-checkout.evidence"
+  }
+}

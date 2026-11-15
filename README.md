@@ -94,6 +94,8 @@ The `7xx` vs `3xx` split is the difference between a tool and a slot machine: it
 | `repro bisect --good … --bad … --test …` | binary search with per-probe evidence; restarts your dev server per commit |
 | `repro fix --test …` | verify → prompt the agent → re-verify, with an attempt budget and an honest report |
 | `repro report` | prints `repro-report.md` |
+| `repro pr --comment` | posts the report to the current PR with `gh` |
+| `repro demo --fixtures` | replays a recorded real run — zero credits, zero login |
 
 ## The loop contract
 
@@ -122,7 +124,8 @@ Not estimates — this is the actual demo, run against real Kane CLI 0.10.4 in r
 |---|---|---|
 | author the flow (`run`, passes) | 38 s | 13 |
 | author the flow (`run`, fails on the regression) | 135 s | 10 |
-| replay a saved `_test.md` | 43–45 s | 3 |
+| replay a saved `_test.md` (all steps still cached) | 43–45 s | 3 |
+| replay a **failing** file (adaptive healing re-authors) | 115–187 s | 17–20 |
 | `bisect` with `--precheck` (6 runs total) | ~6 min | ~30 |
 | `fix` — failing verify + patched verify | 135 s + 42 s | 16 |
 
@@ -131,7 +134,8 @@ The whole demo costs less than 1% of the 10,000 hackathon credits.
 Two findings worth knowing before you build on this:
 
 1. **Replay triage is real, and it is useful.** On a failing replay, Kane emits `test_md_bug_verdict`. If it says `confirmed: false, family: automation_bug`, the *test* is wrong, not the app — so `repro fix` refuses to touch product code and tells you to fix the test instead.
-2. **Replay is not always a trustworthy probe.** One recorded checkout flow reported failure at step 8 while its own captured checks said the confirmation appeared and no 5xx was seen. That is why `bisect` supports authoring mode (`--objective`) as well as replay mode, and why `--precheck` exists: it runs both ends of the range first and refuses to bisect a range that does not actually bracket the bug.
+2. **Kane's own bug triage can flip between runs.** The same failing flow was triaged `automation_bug` on one run and `confirmed product bug` on the next. `repro` therefore treats the verdict as a **veto** (an `automation_bug` means "do not touch product code"), never as a promotion. The `result_code` band remains the primary signal.
+3. **Replay is not always a trustworthy probe.** One recorded checkout flow reported failure at step 8 while its own captured checks said the confirmation appeared and no 5xx was seen. That is why `bisect` supports authoring mode (`--objective`) as well as replay mode, and why `--precheck` exists: it runs both ends of the range first and refuses to bisect a range that does not actually bracket the bug.
 
 ## Status
 
@@ -147,7 +151,8 @@ Next, in order:
 ## Notes
 
 - Chrome at a non-standard path? `export KANE_CLI_CHROME_PATH="/Applications/Google Chrome 2.app/Contents/MacOS/Google Chrome"`. `repro doctor` detects this for you.
-- `repro` never stores credentials. Sign-in is `kane-cli`'s job.
+- **Codex is the default fix agent.** `npm i -g @openai/codex` occasionally misses the platform binary; if `codex --version` throws `Missing optional dependency @openai/codex-darwin-arm64`, install it explicitly or re-run with `--include=optional`.
+- `repro` never stores credentials. Sign-in is `kane-cli`'s and `codex login`'s job.
 - Runs are attributed with `KANE_CLI_USER_AGENT=repro`.
 - Repo built during the KaneCLI Online Hackathon (Nov 2026). See [research/kane-cli-hackathon-research.md](research/kane-cli-hackathon-research.md).
 
