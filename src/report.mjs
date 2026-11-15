@@ -48,7 +48,9 @@ export function writeReport(o) {
 
   const md = `# Repro report
 
-Generated ${now}
+Generated ${now}${o.source ? `
+
+_${o.source}_` : ""}
 
 - **Flow:** ${subject}
 - **Start URL:** ${o.url ?? "(named in the objective)"}

@@ -12,7 +12,7 @@ import { setTimeout as sleep } from "node:timers/promises";
 import { analyze, findEvidencePack, runKane, runObjective, runTest, routeResultCode } from "./kane.mjs";
 import { objectiveFromTicket, testMdFromObjective } from "./objective.mjs";
 import { bisect, withServer } from "./bisect.mjs";
-import { loadTranscript, renderTranscript } from "./demo.mjs";
+import { loadTranscript, renderTranscript, transcriptToReport } from "./demo.mjs";
 import { findChrome } from "./chrome.mjs";
 import { writeReport } from "./report.mjs";
 
@@ -110,10 +110,11 @@ async function cmdDoctor(flags) {  const checks = [];
   checks.push(["kane-cli", has("kane-cli") ? out("kane-cli --version").stdout.trim() : "not on PATH", has("kane-cli")]);
 
   const chrome = findChrome();
+  const chromeRequired = !process.env.REPRO_SKIP_CHROME_CHECK;
   checks.push([
     "google chrome",
     chrome.path ?? "not found — install Chrome, or set KANE_CLI_CHROME_PATH",
-    Boolean(chrome.path),
+    Boolean(chrome.path) || !chromeRequired,
   ]);
 
   if (has("kane-cli")) {
@@ -422,6 +423,13 @@ async function cmdDemo(flags) {
       return 1;
     }
     line(renderTranscript(t));
+    if (flags["write-report"]) {
+      const { report, out } = transcriptToReport(t);
+      writeReport(report);
+      line(C.green(`report written: ${out}`) + C.dim("  (source: recorded run)"));
+      line(C.dim("next: repro pr --comment   # or --dry-run"));
+      line("");
+    }
     return 0;
   }
   line("");

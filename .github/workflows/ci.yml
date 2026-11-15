@@ -1,0 +1,36 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  harness:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Syntax check
+        run: |
+          for f in src/*.mjs scripts/*.mjs apps/demo-shop/*.mjs; do
+            node --check "$f"
+          done
+
+      - name: Build the demo repo (20 commits, one real regression)
+        run: node scripts/make-demo-repo.mjs
+
+      - name: Harness self-test — bisect, objective, report, no credits
+        env:
+          REPRO_SKIP_CHROME_CHECK: "1"
+        run: node scripts/selftest.mjs
+
+      - name: Recorded demo renders without a login
+        run: node src/cli.mjs demo --fixtures

@@ -100,3 +100,44 @@ export function loadTranscript() {
   if (!existsSync(p)) return null;
   return JSON.parse(readFileSync(p, "utf8"));
 }
+
+/**
+ * Turn the recorded transcript into the same report shape `repro fix` writes,
+ * so a PR comment can be demonstrated with real numbers and zero credits.
+ * The report says where it came from; it never pretends to be a fresh run.
+ */
+export function transcriptToReport(t) {
+  const [first, agent, last] = t.act3.attempts;
+  const asVerdict = (v, evidence) => ({
+    ok: v.status === "passed",
+    status: v.status,
+    exitCode: v.exitCode,
+    resultCode: v.resultCode,
+    route: { band: v.band, action: v.action },
+    failingStep: v.failingStep ?? null,
+    credits: v.credits,
+    durationS: v.durationS,
+    oneLiner: v.oneLiner ?? null,
+    finalState: v.finalState ?? null,
+    sessionDir: evidence ?? null,
+    evidencePack: evidence ?? null,
+  });
+
+  return {
+    report: {
+      test: "tests/checkout_saved_card_test.md",
+      mode: "objective",
+      objective:
+        "Go to http://localhost:4173/checkout, click Pay with the saved card, verify the confirmation. Assert: no 5xx, no console errors.",
+      ok: true,
+      source: `recorded run ${t.recorded} · kane-cli ${t.kaneCli} · fixtures/transcript.json`,
+      history: [
+        { attempt: 1, action: "verify", verdict: asVerdict(first.verdict, t.act1.evidence) },
+        { attempt: 2, action: "agent", agentExit: 0, note: agent.note },
+        { attempt: "final", action: "final-verify", verdict: asVerdict(last.verdict, t.act3.evidence) },
+      ],
+      culprit: t.act2.culprit,
+    },
+    out: "repro-report.md",
+  };
+}
