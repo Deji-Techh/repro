@@ -1,5 +1,7 @@
 # repro
 
+[![ci](https://github.com/Deji-Techh/repro/actions/workflows/ci.yml/badge.svg)](https://github.com/Deji-Techh/repro/actions/workflows/ci.yml)
+
 **Turn a bug report into a failing browser test, the commit that broke it, and a proven fix.**
 
 Kane CLI is the oracle. An agent is the hands. `repro` is the loop between them.
