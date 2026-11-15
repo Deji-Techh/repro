@@ -12,8 +12,11 @@
  */
 
 import { spawn } from "node:child_process";
+import { existsSync, readdirSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
+
+import { kaneEnv } from "./chrome.mjs";
 
 export const EXIT = {
   0: { kind: "passed", label: "passed" },
@@ -72,6 +75,9 @@ export function runKane(args, opts = {}) {
       cwd: opts.cwd ?? process.cwd(),
       env: {
         ...process.env,
+        // Chrome is often not at the default path; inject it so callers do not
+        // have to remember KANE_CLI_CHROME_PATH.
+        ...kaneEnv(),
         // Attribute runs to this tool (documented env var).
         KANE_CLI_USER_AGENT: process.env.KANE_CLI_USER_AGENT ?? "repro",
         ...(opts.env ?? {}),
@@ -196,11 +202,7 @@ export function runKane(args, opts = {}) {
         credits: completion?.credits_consumed ?? nestedRunEnd?.credits_consumed ?? nestedRunEnd?.credits ?? null,
         finalState,
         testUrl: nestedRunEnd?.test_url ?? completion?.share_url ?? null,
-        sessionDir:
-          nestedRunEnd?.session_dir ??
-          (completion?.session_id
-            ? join(homedir(), ".testmuai/kaneai/sessions", completion.session_id, "evidence")
-            : null),
+        sessionDir: resolveSessionDir(nestedRunEnd, completion),
         sessionId: completion?.session_id ?? null,
         conditionResults: completion?.condition_results ?? null,
         totals: completion?.steps ?? null,
@@ -211,6 +213,7 @@ export function runKane(args, opts = {}) {
         stderrTail,
         argv: composed,
       };
+      verdict.evidencePack = findEvidencePack(verdict.sessionDir);
       resolve(verdict);
     });
   });
@@ -281,6 +284,7 @@ function buildVerdictType() {
     finalState: null,
     testUrl: null,
     sessionDir: null,
+    evidencePack: null,
     sessionId: null,
     conditionResults: null,
     totals: null,
@@ -291,4 +295,28 @@ function buildVerdictType() {
     stderrTail: "",
     argv: [],
   };
+}
+
+/** Where the evidence lives, and which sealed pack to open. */
+export function resolveSessionDir(runEnd, completion) {
+  const dir =
+    runEnd?.session_dir ??
+    (completion?.session_id ? join(homedir(), ".testmuai/kaneai/sessions", completion.session_id) : null);
+  if (!dir) return null;
+  return existsSync(join(dir, "evidence")) ? dir : dir;
+}
+
+/** First sealed .evidence pack in a session directory (or null). */
+export function findEvidencePack(sessionDir) {
+  if (!sessionDir) return null;
+  for (const dir of [join(sessionDir, "evidence"), sessionDir]) {
+    if (!existsSync(dir)) continue;
+    try {
+      const pack = readdirSync(dir).find((f) => f.endsWith(".evidence"));
+      if (pack) return join(dir, pack);
+    } catch {
+      /* unreadable */
+    }
+  }
+  return null;
 }

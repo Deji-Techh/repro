@@ -3,7 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Turn a bug report into a failing browser test, the commit that broke it, and a proven fix.",
+  "description": "Turn a bug report into a failing browser test, the commit that broke it, and a proven fix. Kane CLI is the definition of done."
+  ,"repository": { "type": "git", "url": "git+https://github.com/Deji-Techh/repro.git" },
+  "keywords": ["kane-cli", "testmu", "ai-agents", "e2e", "bisect", "verification"],
   "bin": {
     "repro": "./src/cli.mjs"
   },

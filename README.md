@@ -31,8 +31,9 @@ npm install -g @testmuai/kane-cli
 kane-cli login          # OAuth in your browser
 kane-cli balance        # runs cost credits; replays are cheap
 
-# 2. check everything
-npx repro doctor
+# 2. check everything (no install, straight from the repo)
+npx github:Deji-Techh/repro doctor
+#    or, from a clone: node src/cli.mjs doctor
 
 # 3. a bug report becomes a runnable test
 repro from --url http://localhost:3000/checkout --ticket "$(cat bug.md)" --out tests/checkout_test.md

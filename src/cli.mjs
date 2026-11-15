@@ -9,9 +9,10 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 
-import { analyze, runKane, runObjective, runTest, routeResultCode } from "./kane.mjs";
+import { analyze, findEvidencePack, runKane, runObjective, runTest, routeResultCode } from "./kane.mjs";
 import { objectiveFromTicket, testMdFromObjective } from "./objective.mjs";
 import { bisect, withServer } from "./bisect.mjs";
+import { findChrome } from "./chrome.mjs";
 import { writeReport } from "./report.mjs";
 
 const C = {
@@ -79,7 +80,8 @@ function verdictLine(v) {
   if (v.route?.why) line(C.dim(`  why: ${v.route.why}`));
   if (v.failingStep) line(C.red(`  failed step ${v.failingStep.step}: ${v.failingStep.remark}`));
   if (v.finalState && Object.keys(v.finalState).length) line(C.dim(`  final_state: ${JSON.stringify(v.finalState)}`));
-  if (v.sessionDir) line(C.dim(`  evidence: ${v.sessionDir}`));
+  if (v.evidencePack) line(C.dim(`  evidence: ${v.evidencePack}`));
+  else if (v.sessionDir) line(C.dim(`  evidence: ${v.sessionDir}`));
   if (v.testUrl) line(C.dim(`  test: ${v.testUrl}`));
   if (v.exitKind === "not-started" && v.stderrTail) {
     line(C.yellow("  kane-cli did not start the run:"));
@@ -91,32 +93,6 @@ function verdictLine(v) {
 function emit(flags, payload, human) {
   if (flags.json) line(JSON.stringify(payload, null, 2));
   else human();
-}
-
-/** Resolve Chrome the way kane-cli does, plus the messy reality of real laptops. */
-function findChrome() {
-  const env = process.env.KANE_CLI_CHROME_PATH;
-  if (env && existsSync(env)) return { path: env, nonStandard: false };
-
-  const standard =
-    process.platform === "darwin"
-      ? ["/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"]
-      : process.platform === "win32"
-        ? ["C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"]
-        : ["/usr/bin/google-chrome", "/usr/bin/google-chrome-stable"];
-
-  for (const p of standard) if (existsSync(p)) return { path: p, nonStandard: false };
-
-  // Fallback: any "Google Chrome*.app" (people have "Google Chrome 2.app").
-  if (process.platform === "darwin") {
-    const r = spawnSync("sh", ["-c", 'ls -d "/Applications/Google Chrome"*.app 2>/dev/null'], { encoding: "utf8" });
-    const first = (r.stdout ?? "").split("\n").map((s) => s.trim()).filter(Boolean)[0];
-    if (first) {
-      const bin = join(first, "Contents/MacOS/Google Chrome");
-      if (existsSync(bin)) return { path: bin, nonStandard: true };
-    }
-  }
-  return { path: null, nonStandard: false };
 }
 
 async function cmdDoctor(flags) {  const checks = [];
@@ -151,8 +127,8 @@ async function cmdDoctor(flags) {  const checks = [];
   const ready = checks.every((c) => c[2]);
   line("");
   if (chrome.path && chrome.nonStandard) {
-    line(C.yellow("Chrome is not at the default path. Kane needs to be told once per shell:"));
-    line(C.dim(`  export KANE_CLI_CHROME_PATH="${chrome.path}"`));
+    line(C.dim("Chrome is not at the default path. repro injects KANE_CLI_CHROME_PATH for you."));
+    line(C.dim(`  (only needed if you call kane-cli directly: export KANE_CLI_CHROME_PATH="${chrome.path}")`));
     line("");
   }
   line(ready ? C.green("Ready. Try: repro verify --test tests/your_test.md") : C.yellow("Not ready yet — fix the ✗ rows above."));
