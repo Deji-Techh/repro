@@ -11,6 +11,7 @@
  * on PATH.
  */
 
+import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
@@ -23,8 +24,12 @@ const err = (s) => process.stderr.write(s + "\n");
 out({ type: "stream_start", cli_version: "fake-0.0.0", surface: argv[0], pid: process.pid, v: 1, ts: new Date().toISOString() });
 
 function verdict() {
+  // Read the file as the commit under test has it, not as the working tree
+  // happens to have it. During `git bisect`, HEAD is the probe.
   const cart = resolve("apps/demo-shop/cart.mjs");
-  const broken = existsSync(cart) && readFileSync(cart, "utf8").includes('String(input?.cardNumber ?? "")');
+  const fromCommit = spawnSync("git", ["show", "HEAD:apps/demo-shop/cart.mjs"], { encoding: "utf8" });
+  const source = fromCommit.status === 0 ? fromCommit.stdout : existsSync(cart) ? readFileSync(cart, "utf8") : "";
+  const broken = source.includes('String(input?.cardNumber ?? "")');
   return broken
     ? {
         ok: false,
@@ -53,6 +58,15 @@ if (argv[0] === "testmd" && argv[1] === "run") {
   out({ step: 1, status: "done", remark: "navigate: opened checkout", v: 1, ts: new Date().toISOString() });
   out({ step: 2, status: v.ok ? "running" : "running", remark: "Step 2", v: 1, ts: new Date().toISOString() });
   out({ ...v.step, v: 1, ts: new Date().toISOString() });
+  out({ type: "test_md_step_end", step_index: 1, status: v.ok ? "passed" : "failed", duration_s: 4.2, v: 1, ts: new Date().toISOString() });
+  out({
+    type: "test_md_done",
+    overall_status: v.ok ? "passed" : "failed",
+    duration_s: 4.2,
+    session_id: "fake-session",
+    v: 1,
+    ts: new Date().toISOString(),
+  });
   out({
     type: "run_end",
     status: v.ok ? "passed" : "failed",
@@ -73,6 +87,15 @@ if (argv[0] === "testmd" && argv[1] === "run") {
 if (argv[0] === "run" && args.includes("--analyzer-only")) {
   const conditions = argv.reduce((acc, a, i) => (a === "--condition" ? [...acc, argv[i + 1]] : acc), []);
   const v = verdict();
+  out({ type: "test_md_step_end", step_index: 1, status: v.ok ? "passed" : "failed", duration_s: 4.2, v: 1, ts: new Date().toISOString() });
+  out({
+    type: "test_md_done",
+    overall_status: v.ok ? "passed" : "failed",
+    duration_s: 4.2,
+    session_id: "fake-session",
+    v: 1,
+    ts: new Date().toISOString(),
+  });
   out({
     type: "run_end",
     status: v.ok ? "passed" : "failed",

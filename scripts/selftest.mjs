@@ -87,7 +87,11 @@ const bisect = spawnSync(
   { cwd: demo, env, encoding: "utf8" },
 );
 pass = step("bisect runs", bisect) && pass;
-const expected = spawnSync("git", ["rev-parse", "HEAD~3"], { cwd: demo, encoding: "utf8" }).stdout.trim().slice(0, 12);
+const expected = spawnSync("git", ["log", "--format=%H %s"], { cwd: demo, encoding: "utf8" })
+  .stdout.split("\n")
+  .filter((l) => l.includes("drop the legacy tokenizer"))
+  .map((l) => l.split(" ")[0])[0]
+  ?.slice(0, 12);
 if (bisect.status === 0) {
   console.log(bisect.stdout);
   const found = bisect.stdout.includes(expected);
