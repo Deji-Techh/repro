@@ -50,7 +50,7 @@ repro bisect --test tests/checkout_test.md \
 repro fix --test tests/checkout_test.md \
   --culprit "$(git rev-parse HEAD)" \
   --serve "npm run dev" --ready-url http://localhost:3000
-# default agent: codex exec. Override with --agent-cmd 'claude -p {prompt}'
+# default agent: opencode run. Override with --agent-cmd 'claude -p {prompt}'
 ```
 
 No Kane credits yet? Run the harness self-test — it exercises the exact same code paths against a stand-in runner:
@@ -127,7 +127,7 @@ Not estimates — this is the actual demo, run against real Kane CLI 0.10.4 in r
 | replay a saved `_test.md` (all steps still cached) | 43–45 s | 3 |
 | replay a **failing** file (adaptive healing re-authors) | 115–187 s | 17–20 |
 | `bisect` with `--precheck` (6 runs total) | ~6 min | ~30 |
-| `fix` — failing verify + patched verify | 135 s + 42 s | 16 |
+| `fix` — failing verify + patched verify (OpenCode patch) | 135 s + 63 s | 16 |
 
 The whole demo costs less than 1% of the 10,000 hackathon credits.
 
@@ -151,7 +151,7 @@ Next, in order:
 ## Notes
 
 - Chrome at a non-standard path? `export KANE_CLI_CHROME_PATH="/Applications/Google Chrome 2.app/Contents/MacOS/Google Chrome"`. `repro doctor` detects this for you.
-- **Codex is the default fix agent.** `npm i -g @openai/codex` occasionally misses the platform binary; if `codex --version` throws `Missing optional dependency @openai/codex-darwin-arm64`, install it explicitly or re-run with `--include=optional`.
+- **OpenCode is the default fix agent** (`opencode run -m opencode-go/deepseek-v4.1-flash --auto`). Codex CLI also works if your ChatGPT plan supports it; `codex login` + `--agent-cmd 'codex exec -s workspace-write {prompt}'`.
 - `repro` never stores credentials. Sign-in is `kane-cli`'s and `codex login`'s job.
 - Runs are attributed with `KANE_CLI_USER_AGENT=repro`.
 - Repo built during the KaneCLI Online Hackathon (Nov 2026). See [research/kane-cli-hackathon-research.md](research/kane-cli-hackathon-research.md).

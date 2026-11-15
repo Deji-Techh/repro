@@ -42,7 +42,7 @@ ${C.bold("Commands")}
 ${C.bold("Common flags")}
   --url <url>          start URL                 --timeout <s>   hard cap (default 240)
   --headless           hide the browser           --json          machine-readable output
-  --agent-cmd <cmd>    agent to run in fix (default: codex exec)
+  --agent-cmd <cmd>    agent to run in fix (default: opencode run)
   --dry-run            write the prompt, don't call the agent
   --serve / --ready-url  start the app per attempt (so a patch is visible)
   --culprit <sha>      put the culprit diff in the agent's prompt
@@ -159,22 +159,33 @@ async function cmdFrom(flags) {
 
 async function cmdVerify(flags) {
   let v;
-  if (flags.test) {
-    v = await runTest(String(flags.test), {
+  const run = async () => {
+    if (flags.test) {
+      return runTest(String(flags.test), {
       url: flags.url,
       timeoutS: Number(flags.timeout ?? 240),
       headless: flags.headless !== false,
-      extra: flags.extraFlags ? String(flags.extraFlags).split(" ") : [],
-    });
-  } else if (flags.objective) {
-    v = await runObjective(String(flags.objective), {
-      url: flags.url,
-      timeoutS: Number(flags.timeout ?? 240),
-      headless: flags.headless !== false,
-    });
-  } else {
-    throw new Error("verify needs --test <file> or --objective \"...\"");
-  }
+        extra: flags.extraFlags ? String(flags.extraFlags).split(" ") : [],
+      });
+    }
+    if (flags.objective) {
+      return runObjective(String(flags.objective), {
+        url: flags.url,
+        timeoutS: Number(flags.timeout ?? 240),
+        headless: flags.headless !== false,
+      });
+    }
+    throw new Error('verify needs --test <file> or --objective "..."');
+  };
+
+  // Restart the app around the run when asked, so a patch on disk is visible.
+  v = await withServer(
+    {
+      serve: flags.serve ? String(flags.serve) : null,
+      readyUrl: flags["ready-url"] ? String(flags["ready-url"]) : null,
+    },
+    run,
+  );
 
   if (flags.out) writeFileSync(resolve(String(flags.out)), JSON.stringify(v, null, 2));
   emit(flags, v, () => {
@@ -306,7 +317,7 @@ async function cmdFix(flags) {
       break;
     }
 
-    line(C.bold(`  agent: ${flags["agent-cmd"] ?? "codex (default)"}`));
+    line(C.bold(`  agent: ${flags["agent-cmd"] ?? "opencode (default)"}`));
     const code = await runAgent(flags["agent-cmd"], prompt);
     history.push({ attempt: i, action: "agent", agentExit: code, promptFile });
     if (code !== 0) line(C.yellow(`  agent exited ${code}; re-verifying anyway (the verdict is the judge)`));
@@ -388,7 +399,7 @@ ${culprit.diff}
 }
 
 function runAgent(agentCmd, prompt) {
-  const cmd = agentCmd ?? "codex exec -s workspace-write --skip-git-repo-check {prompt}";
+  const cmd = agentCmd ?? "opencode run -m opencode-go/deepseek-v4.1-flash --auto --archived {prompt}";
   const [bin, ...rest] = splitCmd(cmd);
   const args = rest.map((a) => (a === "{prompt}" ? prompt : a));
   if (!rest.includes("{prompt}")) args.push(prompt);

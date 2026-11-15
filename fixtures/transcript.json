@@ -2,7 +2,7 @@
   "recorded": "2026-11-15",
   "kaneCli": "0.10.4",
   "chrome": "157.0.8103.51",
-  "note": "Real runs against the demo shop. Every number, quote and sha below was copied from the terminal, not estimated.",
+  "note": "Real runs against the demo shop. The fix in Act 3 was produced by OpenCode from Kane's failing step and the culprit diff. Every number, quote and sha was copied from the terminal.",
   "act1": {
     "command": "repro verify --url http://localhost:4173/checkout --objective \"\u2026\"",
     "verdict": {
@@ -78,8 +78,8 @@
       },
       {
         "action": "agent",
-        "note": "node scripts/demo-agent.mjs <prompt>   (stand-in; swap for: codex exec -s workspace-write --skip-git-repo-check)",
-        "result": "reversed the culprit diff: apps/demo-shop/cart.mjs | 14 +++++++++++++-"
+        "note": "opencode run -m opencode-go/deepseek-v4.1-flash --auto",
+        "result": "7 insertions in apps/demo-shop/cart.mjs (restored the saved-card branch)"
       },
       {
         "action": "verify",
@@ -89,13 +89,13 @@
           "resultCode": 100,
           "band": "success",
           "action": "stop",
-          "durationS": 42.4,
+          "durationS": 63.2,
           "credits": 6,
           "finalState": {
             "url": "http://localhost:4173/checkout",
             "payment_confirmation_visible": "true",
-            "network_request_5xx_status": "false",
-            "console_errors": "false"
+            "network_5xx_status_absent": "false",
+            "console_errors_absent": "false"
           },
           "oneLiner": "submitted payment on the checkout page"
         }
