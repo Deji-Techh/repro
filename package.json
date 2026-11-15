@@ -1,0 +1,19 @@
+{
+  "name": "repro",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Turn a bug report into a failing browser test, the commit that broke it, and a proven fix.",
+  "bin": {
+    "repro": "./src/cli.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "repro": "node ./src/cli.mjs",
+    "demo:repo": "node ./scripts/make-demo-repo.mjs",
+    "demo:shop": "node ./apps/demo-shop/server.mjs",
+    "test": "node --test"
+  }
+}

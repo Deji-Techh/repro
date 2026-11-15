@@ -1,0 +1,100 @@
+#!/usr/bin/env node
+/**
+ * A stand-in for kane-cli, used only by scripts/selftest.mjs.
+ *
+ * Why it exists: the bisect/report plumbing must be testable without burning
+ * credits or requiring a login. This shim reproduces the *shape* of Kane's
+ * contract (NDJSON, step lines, run_end, exit codes) and decides pass/fail from
+ * the working tree, exactly like a real regression would.
+ *
+ * It is never installed and never used by `repro` unless a test puts it first
+ * on PATH.
+ */
+
+import { existsSync, readFileSync } from "node:fs";
+import { resolve } from "node:path";
+
+const argv = process.argv.slice(2);
+const args = argv.join(" ");
+
+const out = (o) => process.stdout.write(JSON.stringify(o) + "\n");
+const err = (s) => process.stderr.write(s + "\n");
+
+out({ type: "stream_start", cli_version: "fake-0.0.0", surface: argv[0], pid: process.pid, v: 1, ts: new Date().toISOString() });
+
+function verdict() {
+  const cart = resolve("apps/demo-shop/cart.mjs");
+  const broken = existsSync(cart) && readFileSync(cart, "utf8").includes('String(input?.cardNumber ?? "")');
+  return broken
+    ? {
+        ok: false,
+        step: { step: 2, status: "failed", remark: "assert: no network request returned a 5xx status — POST /api/pay returned 500" },
+        code: 720,
+        reason: "assertion_error.checkpoint_failed",
+        summary: "Clicked Pay with the saved card; the payment endpoint returned 500.",
+      }
+    : {
+        ok: true,
+        step: { step: 2, status: "done", remark: "assert: payment confirmation is visible" },
+        code: 100,
+        reason: "success.complete",
+        summary: "Paid with the saved card and saw order NW-1042.",
+      };
+}
+
+if (argv[0] === "testmd" && argv[1] === "run") {
+  const file = argv[2];
+  if (!existsSync(file)) {
+    err(`test file not found: ${file}`);
+    process.exit(2);
+  }
+  const v = verdict();
+  out({ step: 1, status: "running", remark: "Step 1", v: 1, ts: new Date().toISOString() });
+  out({ step: 1, status: "done", remark: "navigate: opened checkout", v: 1, ts: new Date().toISOString() });
+  out({ step: 2, status: v.ok ? "running" : "running", remark: "Step 2", v: 1, ts: new Date().toISOString() });
+  out({ ...v.step, v: 1, ts: new Date().toISOString() });
+  out({
+    type: "run_end",
+    status: v.ok ? "passed" : "failed",
+    summary: v.summary,
+    one_liner: v.ok ? "Saved-card checkout works" : "Saved-card checkout fails with a 500",
+    reason: v.reason,
+    result_code: v.code,
+    duration: 4.2,
+    credits_consumed: 9.5,
+    final_state: { order_id: v.ok ? "NW-1042" : "" },
+    session_dir: resolve(".testmuai", "fake-session"),
+    v: 1,
+    ts: new Date().toISOString(),
+  });
+  process.exit(v.ok ? 0 : 1);
+}
+
+if (argv[0] === "run" && args.includes("--analyzer-only")) {
+  const conditions = argv.reduce((acc, a, i) => (a === "--condition" ? [...acc, argv[i + 1]] : acc), []);
+  const v = verdict();
+  out({
+    type: "run_end",
+    status: v.ok ? "passed" : "failed",
+    condition_results: conditions.map(() => v.ok),
+    v: 1,
+    ts: new Date().toISOString(),
+  });
+  process.exit(0);
+}
+
+if (argv[0] === "whoami") {
+  process.stdout.write("profile default · oauth · fake\n");
+  process.exit(0);
+}
+if (argv[0] === "balance") {
+  process.stdout.write("9,999 credits\n");
+  process.exit(0);
+}
+if (argv[0] === "--version") {
+  process.stdout.write("fake-0.0.0\n");
+  process.exit(0);
+}
+
+err(`fake kane-cli: unsupported invocation: ${args}`);
+process.exit(2);
