@@ -34,12 +34,16 @@ ${C.bold("Commands")}
   analyze --condition <text>      live oracle: judge conditions, no test saved
   bisect --good <ref> --bad <ref> find the commit that broke the test
   fix --test <file>               feed the verdict to an agent, re-verify
-  report                          write repro-report.md (canonical evidence links)
+  report                          print repro-report.md
+  pr --comment                    post the report to the current PR (gh)
 
 ${C.bold("Common flags")}
   --url <url>          start URL                 --timeout <s>   hard cap (default 240)
   --headless           hide the browser           --json          machine-readable output
-  --agent-cmd <cmd>    agent to run in fix        --dry-run       write prompt, don't run it
+  --agent-cmd <cmd>    agent to run in fix (default: codex exec)
+  --dry-run            write the prompt, don't call the agent
+  --serve / --ready-url  start the app per attempt (so a patch is visible)
+  --culprit <sha>      put the culprit diff in the agent's prompt
 
 ${C.dim("Docs: kane-cli run_end = { status, result_code, final_state, session_dir, test_url }")}
 `;
@@ -300,7 +304,7 @@ async function cmdFix(flags) {
       break;
     }
 
-    line(C.bold(`  agent: ${flags["agent-cmd"] ?? "claude (default)"}`));
+    line(C.bold(`  agent: ${flags["agent-cmd"] ?? "codex (default)"}`));
     const code = await runAgent(flags["agent-cmd"], prompt);
     history.push({ attempt: i, action: "agent", agentExit: code, promptFile });
     if (code !== 0) line(C.yellow(`  agent exited ${code}; re-verifying anyway (the verdict is the judge)`));
@@ -382,7 +386,7 @@ ${culprit.diff}
 }
 
 function runAgent(agentCmd, prompt) {
-  const cmd = agentCmd ?? "claude --permission-mode acceptEdits -p {prompt}";
+  const cmd = agentCmd ?? "codex exec -s workspace-write --skip-git-repo-check {prompt}";
   const [bin, ...rest] = splitCmd(cmd);
   const args = rest.map((a) => (a === "{prompt}" ? prompt : a));
   if (!rest.includes("{prompt}")) args.push(prompt);
@@ -395,6 +399,43 @@ function runAgent(agentCmd, prompt) {
 
 function splitCmd(s) {
   return s.match(/(?:[^\s"']+|"[^"]*"|'[^']*')+/g)?.map((p) => p.replace(/^["']|["']$/g, "")) ?? [];
+}
+
+async function cmdPr(flags) {
+  const file = resolve("repro-report.md");
+  if (!existsSync(file)) {
+    line(C.yellow("no repro-report.md yet — run `repro fix` or `repro bisect` first"));
+    return 1;
+  }
+  const body = readFileSync(file, "utf8");
+  if (flags["dry-run"]) {
+    line(C.dim("--dry-run: would post this as a PR comment\n"));
+    line(body);
+    return 0;
+  }
+
+  const repoArgs = flags.repo ? ["--repo", String(flags.repo)] : [];
+  let pr = flags.pr ? String(flags.pr) : null;
+  if (!pr) {
+    const v = spawnSync("gh", ["pr", "view", "--json", "number", "-q", ".number", ...repoArgs], { encoding: "utf8" });
+    if (v.status !== 0) {
+      line(C.yellow("no pull request found for this branch."));
+      line(C.dim((v.stderr || "").trim().split("\n").slice(-2).join("\n")));
+      line(C.dim("Push the branch and open a PR, or pass --pr <number>."));
+      return 1;
+    }
+    pr = v.stdout.trim();
+  }
+
+  const r = spawnSync("gh", ["pr", "comment", pr, "--body-file", file, ...repoArgs], { encoding: "utf8" });
+  if (r.status !== 0) {
+    line(C.red("gh could not comment:"));
+    line((r.stderr || r.stdout || "").trim());
+    return 1;
+  }
+  line(C.green(`commented on PR #${pr}`));
+  line(C.dim((r.stdout || "").trim()));
+  return 0;
 }
 
 async function cmdReport(flags) {
@@ -459,6 +500,8 @@ async function main() {
         return await cmdFix(flags);
       case "report":
         return await cmdReport(flags);
+      case "pr":
+        return await cmdPr(flags);
       default:
         line(C.red(`unknown command: ${cmd}`));
         line(HELP);

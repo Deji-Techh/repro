@@ -49,8 +49,8 @@ repro bisect --test tests/checkout_test.md \
 # 6. let the agent fix it, with the culprit diff in hand, and prove the fix
 repro fix --test tests/checkout_test.md \
   --culprit "$(git rev-parse HEAD)" \
-  --serve "npm run dev" --ready-url http://localhost:3000 \
-  --agent-cmd 'claude -p {prompt}'
+  --serve "npm run dev" --ready-url http://localhost:3000
+# default agent: codex exec. Override with --agent-cmd 'claude -p {prompt}'
 ```
 
 No Kane credits yet? Run the harness self-test — it exercises the exact same code paths against a stand-in runner:
